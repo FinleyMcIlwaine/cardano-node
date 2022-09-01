@@ -287,6 +287,7 @@ renderEra (AnyCardanoEra AllegraEra) = "Allegra"
 renderEra (AnyCardanoEra MaryEra)    = "Mary"
 renderEra (AnyCardanoEra AlonzoEra)  = "Alonzo"
 renderEra (AnyCardanoEra BabbageEra) = "Babbage"
+renderEra (AnyCardanoEra ConwayEra)  = "Conway"
 
 renderFeature :: TxFeature -> Text
 renderFeature TxFeatureShelleyAddresses     = "Shelley addresses"
@@ -570,12 +571,12 @@ runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mS
                     Just addr -> addr
                     Nothing -> error $ "runTxBuild: Byron address used: " <> show changeAddr
 
-      (BalancedTxBody balancedTxBody _ fee) <-
+      BalancedTxBody balancedTxBody _ fee <-
         firstExceptT ShelleyTxCmdBalanceTxBody
           . hoistEither
           $ makeTransactionBodyAutoBalance eInMode systemStart eraHistory
-                                           pparams stakePools utxo txBodyContent
-                                           cAddr mOverrideWits
+                                          pparams stakePools utxo txBodyContent
+                                          cAddr mOverrideWits
       putStrLn $ "Estimated transaction fee: " <> (show fee :: String)
 
       case outputOptions of
@@ -627,6 +628,19 @@ runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mS
       if null scriptLockedTxIns
       then return ()
       else left . ShelleyTxCmdExpectedKeyLockedTxIn $ map fst scriptLockedTxIns
+
+
+-- genAddressInEra :: CardanoEra era -> Gen (AddressInEra era)
+-- genAddressInEra era =
+--   case cardanoEraStyle era of
+--     LegacyByronEra ->
+--       byronAddressInEra <$> genAddressByron
+
+--     ShelleyBasedEra _ ->
+--       Gen.choice
+--         [ byronAddressInEra   <$> genAddressByron
+--         , shelleyAddressInEra <$> genAddressShelley
+--         ]
 
 -- ----------------------------------------------------------------------------
 -- Transaction body validation and conversion
@@ -1221,6 +1235,7 @@ getIsCardanoEraConstraint AllegraEra f = f
 getIsCardanoEraConstraint MaryEra f = f
 getIsCardanoEraConstraint AlonzoEra f = f
 getIsCardanoEraConstraint BabbageEra f = f
+getIsCardanoEraConstraint ConwayEra f = f
 
 readScriptDatumOrFile :: ScriptDatumOrFile witctx
                       -> ExceptT ShelleyTxCmdError IO (ScriptDatum witctx)
@@ -1274,7 +1289,7 @@ runTxSign txOrTxBody witSigningData mnw (TxFile outTxFile) = do
     (InputTxFile (TxFile inputTxFile)) -> do
       anyTx <- readFileTx inputTxFile
 
-      InAnyShelleyBasedEra _era tx <-
+      InAnyShelleyBasedEra _sbe tx <-
           onlyInShelleyBasedEras "sign for Byron era transactions" anyTx
 
       let (txbody, existingTxKeyWits) = getTxBodyAndWitnesses tx
@@ -1295,7 +1310,7 @@ runTxSign txOrTxBody witSigningData mnw (TxFile outTxFile) = do
 
       case unwitnessed of
         IncompleteCddlFormattedTx anyTx -> do
-         InAnyShelleyBasedEra _era unwitTx <-
+         InAnyShelleyBasedEra _sbe unwitTx <-
            onlyInShelleyBasedEras "sign for Byron era transactions" anyTx
 
          let txbody = getTxBody unwitTx
@@ -1312,7 +1327,7 @@ runTxSign txOrTxBody witSigningData mnw (TxFile outTxFile) = do
                       writeTxFileTextEnvelopeCddl outTxFile tx
 
         UnwitnessedCliFormattedTxBody anyTxbody -> do
-          InAnyShelleyBasedEra _era txbody <-
+          InAnyShelleyBasedEra _sbe txbody <-
             --TODO: in principle we should be able to support Byron era txs too
             onlyInShelleyBasedEras "sign for Byron era transactions" anyTxbody
           -- Byron witnesses require the network ID. This can either be provided
@@ -1723,7 +1738,7 @@ runTxCreateWitness (TxBodyFile txbodyFile) witSignData mbNw (OutputFile oFile) =
        $ writeTxWitnessFileTextEnvelopeCddl sbe oFile witness
 
     UnwitnessedCliFormattedTxBody anyTxbody -> do
-      InAnyShelleyBasedEra _era txbody <-
+      InAnyShelleyBasedEra _sbe txbody <-
         onlyInShelleyBasedEras "sign for Byron era transactions" anyTxbody
 
       someWit <- firstExceptT ShelleyTxCmdReadWitnessSigningDataError
