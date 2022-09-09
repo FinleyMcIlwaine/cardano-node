@@ -16,7 +16,7 @@ import           Cardano.Api.Shelley (fromShelleyLovelace, fromShelleyPaymentCre
                    fromShelleyStakeReference, ReferenceScript(..))
 import           Control.Arrow ((***))
 
-import           Cardano.Benchmarking.FundSet
+import           Cardano.TxGenerator.FundQueue
 import           Cardano.Benchmarking.GeneratorTx.Tx
 
 import           Cardano.Ledger.Shelley.API (Addr (..), ShelleyGenesis, sgInitialFunds)
